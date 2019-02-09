@@ -122,10 +122,8 @@ namespace ClassicUO
                 return;
             }
 
-            if (_settings.FixedTimeStep)
-                TargetElapsedTime = TimeSpan.FromSeconds(1.0f / MAX_FPS);
-            else
-                IsFixedTimeStep = false;
+            TargetElapsedTime = TimeSpan.FromSeconds(1.0f / MAX_FPS);
+            IsFixedTimeStep = _settings.FixedTimeStep;
 
             _graphicDeviceManager = new GraphicsDeviceManager(this);
             _graphicDeviceManager.PreparingDeviceSettings += (sender, e) => e.GraphicsDeviceInformation.PresentationParameters.RenderTargetUsage = RenderTargetUsage.PreserveContents;
@@ -256,6 +254,9 @@ namespace ClassicUO
         private static void Main(string[] args)
         {
             Configure();
+
+
+            Console.WriteLine(args);
             
             ArgsParser(args);
 
@@ -277,6 +278,8 @@ namespace ClassicUO
 
                 cmd = cmd.Remove(0, 1);
                 string value = args[i + 1];
+
+                Console.WriteLine("ARG: {0}, VALUE: {1}", cmd, value);
 
                 switch (cmd)
                 {
