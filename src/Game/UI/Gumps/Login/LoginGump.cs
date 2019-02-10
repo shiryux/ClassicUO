@@ -51,6 +51,7 @@ namespace ClassicUO.Game.UI.Gumps.Login
                 // Full background
                 Add(new GumpPic(0, 0, 0x2329, 0));
 
+            Add(new GumpPic(2, -6, 0x151, 0));
 
             //// Quit Button
             Add(new Button((int)Buttons.Quit, 0x1589, 0x158B, 0x158A)

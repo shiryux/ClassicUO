@@ -12,7 +12,7 @@ namespace ClassicUO.Game.UI.Gumps.Login
             Add(new GumpPic(0, 0, 0x157C, 0) { AcceptKeyboardInput = false });
 
             // UO Flag
-            Add(new GumpPic(0, 4, 0x15A0, 0) { AcceptKeyboardInput = false });
+            Add(new GumpPic(2, -6, 0x151, 0) { AcceptKeyboardInput = false });
 
             
             // Quit Button
