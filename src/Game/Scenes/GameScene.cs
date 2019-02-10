@@ -55,6 +55,9 @@ namespace ClassicUO.Game.Scenes
         private GameObject _selectedObject;
         private UseItemQueue _useItemQueue = new UseItemQueue();
         private float _scale = 1;
+        private bool _alphaChanged;
+        private long _alphaTimer;
+        private bool _forceStopScene = false;
 
         public GameScene() : base()
         {
@@ -65,7 +68,6 @@ namespace ClassicUO.Game.Scenes
             get => _scale;
             set
             {
-
                 if (value < 0.7f)
                     value = 0.7f;
                 else if (value > 2.3f)
@@ -186,7 +188,6 @@ namespace ClassicUO.Game.Scenes
             else
                 Scale = 1f; // hard return to 1.0f
 
-
             Plugin.OnConnected();
             //Coroutine.Start(this, CastSpell());
         }
@@ -274,64 +275,70 @@ namespace ClassicUO.Game.Scenes
                     mobile.AddOverhead(MessageType.Regular, "AAAAAAAAAAAAAAAAAAAAA", 1, 0x45, true);
                 }
             }
-
         }
 
         public override void Unload()
         {
-            HeldItem.Clear();
+            try
+            {
+                HeldItem?.Clear();
 
-            Plugin.OnDisconnected();
+                Plugin.OnDisconnected();
 
-            _renderList = null;
+                _renderList = null;
 
-            TargetManager.ClearTargetingWithoutTargetCancelPacket();
+                TargetManager.ClearTargetingWithoutTargetCancelPacket();
 
-            Engine.Profile.Current?.Save( Engine.UI.Gumps.OfType<Gump>().Where(s => s.CanBeSaved).Reverse().ToList() );
-            Engine.Profile.UnLoadProfile();
+                Engine.Profile.Current?.Save(Engine.UI.Gumps.OfType<Gump>().Where(s => s.CanBeSaved).Reverse().ToList());
+                Engine.Profile.UnLoadProfile();
 
-            NetClient.Socket.Disconnected -= SocketOnDisconnected;
-            NetClient.Socket.Disconnect();
-            _renderTarget?.Dispose();
-            CommandManager.UnRegisterAll();
+                NetClient.Socket.Disconnected -= SocketOnDisconnected;
+                NetClient.Socket.Disconnect();
+                _renderTarget?.Dispose();
+                CommandManager.UnRegisterAll();
 
-            _viewPortGump.MouseDown -= OnMouseDown;
-            _viewPortGump.MouseUp -= OnMouseUp;
-            _viewPortGump.MouseDoubleClick -= OnMouseDoubleClick;
-            _viewPortGump.DragBegin -= OnMouseDragBegin;
+                Engine.UI?.Clear();
+                World.Clear();
 
-            Engine.UI.Clear();
-            World.Clear();
+                _viewPortGump.MouseDown -= OnMouseDown;
+                _viewPortGump.MouseUp -= OnMouseUp;
+                _viewPortGump.MouseDoubleClick -= OnMouseDoubleClick;
+                _viewPortGump.DragBegin -= OnMouseDragBegin;
 
-            Engine.Input.KeyDown -= OnKeyDown;
-            Engine.Input.KeyUp -= OnKeyUp;
+                Engine.Input.KeyDown -= OnKeyDown;
+                Engine.Input.KeyUp -= OnKeyUp;
 
-            _overheadManager.Dispose();
-            _overheadManager = null;
-            _journalManager.Clear();
-            _journalManager = null;
-            _overheadManager = null;
-            _useItemQueue.Clear();
-            _useItemQueue = null;
-            _hotkeysManager = null;
-            _macroManager = null;
-            Chat.Message -= ChatOnMessage;
+                _overheadManager?.Dispose();
+                _overheadManager = null;
+                _journalManager?.Clear();
+                _journalManager = null;
+                _overheadManager = null;
+                _useItemQueue?.Clear();
+                _useItemQueue = null;
+                _hotkeysManager = null;
+                _macroManager = null;
+                Chat.Message -= ChatOnMessage;
+
+            } catch
+            {
+            }
 
             base.Unload();
         }
 
         private void SocketOnDisconnected(object sender, SocketError e)
         {
-            Engine.UI.Add(new MessageBoxGump(200, 200, $"Connection lost:\n{e}", (s) =>
-            {         
-                if (s)
-                    Engine.SceneManager.ChangeScene(ScenesType.Login);
-            }));
+            if (Engine.GlobalSettings.Reconnect)
+                _forceStopScene = true;
+            else
+            {
+                Engine.UI.Add(new MessageBoxGump(200, 200, $"Connection lost:\n{e}", (s) =>
+                {
+                    if (s)
+                        Engine.SceneManager.ChangeScene(ScenesType.Login);
+                }));
+            }
         }
-
-        private bool _alphaChanged;
-        private long _alphaTimer;
-
 
         public void RequestQuitGame()
         {
@@ -349,6 +356,17 @@ namespace ClassicUO.Game.Scenes
             if (!World.InGame)
                 return;
 
+            if (_forceStopScene)
+            {
+                Engine.SceneManager.ChangeScene(ScenesType.Login);
+
+                LoginScene loginScene = Engine.SceneManager.GetScene<LoginScene>();
+                if (loginScene != null)
+                    loginScene.Reconnect = true;
+
+                return;
+            }
+
             _alphaChanged = _alphaTimer < Engine.Ticks;
 
             if (_alphaChanged)
@@ -363,7 +381,6 @@ namespace ClassicUO.Game.Scenes
             int minY = _minTile.Y;
             int maxX = _maxTile.X;
             int maxY = _maxTile.Y;
-
 
             for (int i = 0; i < 2; i++)
             {
@@ -415,6 +432,9 @@ namespace ClassicUO.Game.Scenes
         {
             base.Update(totalMS, frameMS);
 
+            if (_forceStopScene)
+                return;
+
             if (!World.InGame)
                 return;
 
@@ -452,11 +472,11 @@ namespace ClassicUO.Game.Scenes
             }
             else if (SelectedObject != null) SelectedObject = null;
 
-            _mouseOverList.Clear();
+            _mouseOverList?.Clear();
 
             if (_rightMousePressed || _continueRunning)
                 MoveCharacterByInputs();
-            // ===================================
+
             World.Update(totalMS, frameMS);
             _overheadManager.Update(totalMS, frameMS);
 
@@ -465,7 +485,6 @@ namespace ClassicUO.Game.Scenes
                 NetClient.Socket.Send(new PPing());
                 _timePing = (long) totalMS + 10000;
             }
-
 
             _useItemQueue.Update(totalMS, frameMS);
         }
@@ -490,8 +509,6 @@ namespace ClassicUO.Game.Scenes
             batcher.SetLightDirection(World.Light.IsometricDirection);
             RenderedObjectsCount = 0;
 
-
-
             //int drawX = (Engine.Profile.Current.GameWindowSize.X >> 1);
             //int drawY = (Engine.Profile.Current.GameWindowSize.Y >> 1) - 22;
 
@@ -513,14 +530,11 @@ namespace ClassicUO.Game.Scenes
                     {
                         RenderedObjectsCount++;
                     }
-
                 }
             }
 
             // Draw in game overhead text messages
             _overheadManager.Draw(batcher, _mouseOverList, _offset);
-
-
 
             batcher.End();
             batcher.EnableLight(false);

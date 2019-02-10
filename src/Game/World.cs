@@ -36,7 +36,6 @@ namespace ClassicUO.Game
         private static readonly EffectManager _effectManager = new EffectManager();
         private static readonly List<Entity> _toRemove = new List<Entity>();
 
-
         public static PartyManager Party { get; } = new PartyManager();
 
         public static HouseManager HouseManager { get; } = new HouseManager();
@@ -268,7 +267,6 @@ namespace ClassicUO.Game
             Player = null;
             Map.Dispose();
             Map = null;
-            //ToAdd.Clear();
             ClientFlags.SetFlags(0);
             ClientLockedFeatures.SetFlags(0);
             HouseManager.Clear();
@@ -276,7 +274,6 @@ namespace ClassicUO.Game
             ServerName = string.Empty;
             LastAttack = 0;
             Chat.PromptData = default;
-
             _effectManager.Clear();
             _toRemove.Clear();
         }
@@ -298,7 +295,6 @@ namespace ClassicUO.Game
                     if (item.RootContainer == Player)
                         continue;
                 }
-
                 RemoveItem(item);
             }
 
@@ -309,7 +305,6 @@ namespace ClassicUO.Game
                     if (mob == Player)
                         continue;
                 }
-
                 RemoveMobile(mob);
             }
         }

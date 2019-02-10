@@ -60,7 +60,11 @@ namespace ClassicUO.Game.Scenes
         private byte[] _clientVersionBuffer;
         private Gump _currentGump;
         private LoginStep _lastLoginStep;
-        private static bool _isFirstLogin = true;
+
+        public bool Reconnect { get; set; } = false;
+
+        private long? _reconnectTime = null;
+        private int _reconnectTryCounter = 1;
 
         public LoginScene() : base()
         {
@@ -112,7 +116,7 @@ namespace ClassicUO.Game.Scenes
 
             Audio.PlayMusic(music);
 
-            if (Engine.GlobalSettings.AutoLogin && _isFirstLogin && CurrentLoginStep != LoginStep.Main)
+            if ((Engine.GlobalSettings.AutoLogin || Reconnect) && CurrentLoginStep != LoginStep.Main)
             {
                 if (!string.IsNullOrEmpty(Engine.GlobalSettings.Username))
                 {
@@ -153,6 +157,25 @@ namespace ClassicUO.Game.Scenes
                 g.Dispose();
 
                 _lastLoginStep = CurrentLoginStep;
+            }
+
+            if (Reconnect && (CurrentLoginStep == LoginStep.PopUpMessage || CurrentLoginStep == LoginStep.Main))
+            {
+                long rt = (long)totalMS + (Engine.GlobalSettings.ReconnectTime * 1000);
+
+                if (_reconnectTime == null)
+                    _reconnectTime = rt;
+
+                if (_reconnectTime < totalMS)
+                {
+                    if (!string.IsNullOrEmpty(Account))
+                        Connect(Account, Password);
+                    else if (!string.IsNullOrEmpty(Engine.GlobalSettings.Username))
+                        Connect(Engine.GlobalSettings.Username, Crypter.Decrypt(Engine.GlobalSettings.Password));
+
+                    _reconnectTime = rt;
+                    _reconnectTryCounter++;
+                }
             }
 
             base.Update(totalMS, frameMS);
@@ -372,6 +395,13 @@ namespace ClassicUO.Game.Scenes
                 Characters = null;
                 Servers = null;
                 PopupMessage = $"Connection lost:\n`{e}`";
+
+                if (Engine.GlobalSettings.Reconnect)
+                {
+                    Reconnect = true;
+                    PopupMessage = $"Reconnect, please wait...`{_reconnectTryCounter}`\n`{e}`";
+                }
+
                 CurrentLoginStep = LoginStep.PopUpMessage;
             }
         }
@@ -386,7 +416,7 @@ namespace ClassicUO.Game.Scenes
 
                     CurrentLoginStep = LoginStep.ServerSelection;
 
-                    if (Engine.GlobalSettings.AutoLogin && _isFirstLogin)
+                    if (Engine.GlobalSettings.AutoLogin || Reconnect)
                     {
                         if (Servers.Length != 0)
                             SelectServer( (byte) Servers[(Engine.GlobalSettings.LastServerNum-1)].Index);
@@ -417,9 +447,8 @@ namespace ClassicUO.Game.Scenes
 					ParseFlags(e);
                     CurrentLoginStep = LoginStep.CharacterSelection;
 
-				    if (Engine.GlobalSettings.AutoLogin && _isFirstLogin)
+				    if (Engine.GlobalSettings.AutoLogin || Reconnect)
 				    {
-				        _isFirstLogin = false;
                         bool haveAnyCharacter = false;
 
                         for (byte i = 0; i < Characters.Length; i++)
